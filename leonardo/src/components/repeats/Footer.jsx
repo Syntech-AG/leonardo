@@ -1,3 +1,6 @@
+"use client";
+
+import Link from "next/link";
 import React from "react";
 
 const Footer = () => {
@@ -23,26 +26,26 @@ const Footer = () => {
                   <h1 className="text-[#C5C5C5] md:text-[20px] text-[18px] font-regular">
                     Telefon
                   </h1>
-                  <p className="text-white md:text-[16px] text-[14px] mt-2">
+                  <Link href="tel:0418550656" className="text-white md:text-[16px] text-[14px] mt-2">
                     041 855 06 56
-                  </p>
+                  </Link>
                 </div>
                 <div>
                   <h1 className="text-[#C5C5C5] md:text-[20px] text-[18px] font-regular">
                     E-Mail
                   </h1>
-                  <p className="text-white md:text-[16px] text-[14px] mt-2">
+                  <Link href="mailto:info@leonard-tueren.ch" className="text-white md:text-[16px] text-[14px] mt-2">
                     info@leonard-tueren.ch
-                  </p>
+                  </Link>
                 </div>
                 <div>
                   <h1 className="text-[#C5C5C5] md:text-[20px] text-[18px] font-regular">
                     Adresse
                   </h1>
-                  <p className="text-white md:text-[16px] text-[14px] mt-2">
+                  <Link href="https://www.google.com/maps/place/Leonard+T%C3%BCren+GmbH/@47.0499562,8.5482446,17z/data=!3m1!4b1!4m6!3m5!1s0x478551ca3f15e239:0x4f93834d6bd77387!8m2!3d47.0499526!4d8.5508195!16s%2Fg%2F11fq7ytr3d?entry=ttu&g_ep=EgoyMDI1MTExNy4wIKXMDSoASAFQAw%3D%3D" target="_blank" className="text-white md:text-[16px] text-[14px] mt-2">
                     Leonard Türen GmbH <br />
                     Centralstrasse 14 6410 Goldau
-                  </p>
+                  </Link>
                 </div>
               </div>
               <img
@@ -51,7 +54,7 @@ const Footer = () => {
                 alt=""
               />
             </div>
-            <div className="flex xl:flex-row flex-col max-lg:items-center">
+            {/* <div className="flex xl:flex-row flex-col max-lg:items-center">
               <p className="p-10 max-xl:min-w-[204px] max-md:min-w-[194px] max-xl:justify-center flex items-center border lg:border-b-transparent border-white text-white md:text-[20px] text-[18px]">
                 Aussentüren
               </p>
@@ -68,10 +71,10 @@ const Footer = () => {
                   alt=""
                 />
               </p>
-            </div>
+            </div> */}
           </div>
         </div>
-        <div className="flex lg:flex-row justify-between flex-col max-lg:items-center border-t border-t-white pt-12">
+        <div className="flex lg:flex-row justify-between flex-col max-lg:items-center border-t border-t-white pt-12 mt-10">
           <h1 className="text-white text-[14px]">
             © 2025 Entworfen von Syntech Solutions AG
           </h1>

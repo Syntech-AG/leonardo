@@ -1,5 +1,5 @@
 import React, { memo } from "react";
-import { formatCHF } from "../../../js-components/currency";
+import { formatCHF } from "@utils/currency";
 
 function ItemMini({ item }) {
   return (
@@ -46,22 +46,22 @@ function SummarySidebar({
       </div>
 
       <dl className="mt-5 space-y-4">
-        <div className="flex items-center justify-between">
+        {/* <div className="flex items-center justify-between">
           <dt className="text-sm text-gray-600">Zwischensumme</dt>
           <dd className="text-sm text-gray-900">
             {formatCHF(totals.subtotal)}
           </dd>
-        </div>
-        <div className="flex items-center justify-between">
+        </div> */}
+        {/* <div className="flex items-center justify-between">
           <dt className="text-sm text-gray-600">Versand</dt>
           <dd className="text-sm text-gray-900">
             {formatCHF(totals.shipping)}
           </dd>
-        </div>
+        </div> */}
         <div className="flex items-center justify-between">
           <dt className="text-sm text-gray-600">Preis</dt>
           <dd className="text-sm text-gray-900">
-            {formatCHF(totals.subtotal + totals.shipping)}
+            {formatCHF(totals.subtotal)}
           </dd>
         </div>
         <div className="flex items-center justify-between">

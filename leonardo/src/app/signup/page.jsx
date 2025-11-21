@@ -1,4 +1,9 @@
-import React, { useState } from "react";
+"use client";
+
+import React, { useState, useEffect } from "react";
+import { supabase } from "@components/supabase/supabaseClient";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 const EyeSlashIcon = (props) => (
   <svg
@@ -39,19 +44,56 @@ const EyeIcon = (props) => (
   </svg>
 );
 
-const Signup = () => {
+export default function Signup() {
   const [formData, setFormData] = useState({
-    firstName: "Shantel",
-    lastName: "Salvador",
-    email: "shansalvadr@gmail.com",
-    phoneNumber: "09981867570",
-    password: "******************",
-    confirmPassword: "******************",
+    firstName: "",
+    lastName: "",
+    email: "",
+    phoneNumber: "",
+    password: "",
+    confirmPassword: "",
     agreeToTerms: false,
   });
 
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState("");
+
+  // New auth state
+  const [user, setUser] = useState(null);
+  const [checkingAuth, setCheckingAuth] = useState(true);
+  const router = useRouter();
+
+  // Check auth on mount
+  useEffect(() => {
+    const checkUser = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        setUser(session?.user || null);
+      } catch (error) {
+        console.error("Error checking auth:", error);
+      } finally {
+        setCheckingAuth(false);
+      }
+    };
+
+    checkUser();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user || null);
+      setCheckingAuth(false);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const handleLogout = async () => {
+    setLoading(true);
+    await supabase.auth.signOut();
+    setUser(null);
+    setLoading(false);
+  };
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -61,18 +103,54 @@ const Signup = () => {
     }));
   };
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
+
     if (formData.password !== formData.confirmPassword) {
-      alert("Passwords do not match.");
+      setMessage("Passwords do not match.");
       return;
     }
+
     if (!formData.agreeToTerms) {
-      alert("You must agree to the Terms and Privacy Policies.");
+      setMessage("You must agree to the Terms and Privacy Policies.");
       return;
     }
-    console.log("Creating account with:", formData);
-    alert("Check the console for form data. Signup logic not implemented.");
+
+    setLoading(true);
+    setMessage("");
+
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email: formData.email,
+        password: formData.password,
+        options: {
+          data: {
+            first_name: formData.firstName,
+            last_name: formData.lastName,
+          },
+          emailRedirectTo: typeof window !== "undefined" ? `${window.location.origin}/auth/callback` : undefined,
+        },
+      });
+
+      if (error) {
+        setMessage(`Signup error: ${error.message}`);
+      } else {
+        setMessage("Signup successful! Check your email to confirm.");
+        setFormData({
+          firstName: "",
+          lastName: "",
+          email: "",
+          phoneNumber: "",
+          password: "",
+          confirmPassword: "",
+          agreeToTerms: false,
+        });
+      }
+    } catch (error) {
+      setMessage(`Error: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const renderInputField = (id, name, type, label) => (
@@ -128,6 +206,58 @@ const Signup = () => {
     </div>
   );
 
+  if (checkingAuth) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-100">
+        <div className="animate-pulse flex space-x-4">
+          <div className="flex-1 space-y-4 py-1">
+            <div className="h-4 bg-gray-300 rounded w-3/4"></div>
+            <div className="space-y-2">
+              <div className="h-4 bg-gray-300 rounded"></div>
+              <div className="h-4 bg-gray-300 rounded w-5/6"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // --- LOGGED IN STATE ---
+  if (user) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-100 font-sans">
+        <div className="w-full max-w-md p-8 bg-white rounded-xl shadow-lg text-center space-y-6">
+          <div className="rounded-full bg-green-100 w-16 h-16 flex items-center justify-center mx-auto">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-8 h-8 text-green-600">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Already Signed In</h1>
+            <p className="mt-2 text-gray-500">
+              You are currently logged in as <br/>
+              <span className="font-medium text-gray-800">{user.email}</span>
+            </p>
+          </div>
+
+          <div className="space-y-3 pt-4">
+            <Link href="/shop" className="block w-full py-3 px-4 bg-amber-400 hover:bg-amber-500 text-black font-bold rounded-md transition-colors">
+              Continue Shopping
+            </Link>
+            <button
+              onClick={handleLogout}
+              disabled={loading}
+              className="block w-full py-3 px-4 bg-white border border-gray-300 text-gray-700 font-medium rounded-md hover:bg-gray-50 transition-colors"
+            >
+              {loading ? "Signing out..." : "Log out"}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // --- SIGNUP FORM (If not logged in) ---
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-100 font-sans">
       <div className="w-full max-w-2xl p-8 space-y-8 bg-white rounded-xl shadow-lg">
@@ -137,6 +267,18 @@ const Signup = () => {
             Let's get you all set up so you can access your personal account.
           </p>
         </div>
+
+        {message && (
+          <div
+            className={`p-4 rounded-md ${
+              message.includes("error")
+                ? "bg-red-100 text-red-700"
+                : "bg-green-100 text-green-700"
+            }`}
+          >
+            {message}
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="mt-8 space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -192,25 +334,24 @@ const Signup = () => {
           <div>
             <button
               type="submit"
-              className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-bold rounded-md text-black bg-amber-400 hover:bg-amber-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500"
+              disabled={loading}
+              className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-bold rounded-md text-black bg-amber-400 hover:bg-amber-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 disabled:opacity-50"
             >
-              Create Account
+              {loading ? "Creating Account..." : "Create Account"}
             </button>
           </div>
         </form>
 
         <p className="mt-6 text-center text-sm text-gray-600">
           Already have an account?{" "}
-          <a
-            href="#"
+          <Link
+            href="/login"
             className="font-medium text-amber-500 hover:text-amber-600"
           >
             Login
-          </a>
+          </Link>
         </p>
       </div>
     </div>
   );
-};
-
-export default Signup;
+}

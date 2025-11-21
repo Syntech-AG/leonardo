@@ -1,17 +1,20 @@
+"use client";
+
 import React, { Suspense } from "react";
 import {
   CheckoutProvider,
   useCheckout,
-} from "../components/checkout/store/CheckoutProvider";
-import ProgressHeader from "../components/checkout/components/ProgressHeader";
-import SummarySidebar from "../components/checkout/components/SummarySidebar";
-import CartStep from "../components/checkout/steps/CartStep";
-import CustomerStep from "../components/checkout/steps/CustomerStep";
+} from "@components/checkout/store/CheckoutProvider";
+import ProgressHeader from "@components/checkout/components/ProgressHeader";
+import SummarySidebar from "@components/checkout/components/SummarySidebar";
+import CartStep from "@components/checkout/steps/CartStep";
+import CustomerStep from "@components/checkout/steps/CustomerStep";
 const ShippingPaymentStep = React.lazy(() =>
-  import("../components/checkout/steps/ShippingPaymentStep")
+  import("@components/checkout/steps/ShippingPaymentStep")
 );
-import ReviewStep from "../components/checkout/steps/ReviewStep";
-import TrackingStep from "../components/checkout/steps/TrackingStep";
+import ReviewStep from "@components/checkout/steps/ReviewStep";
+import TrackingStep from "@components/checkout/steps/TrackingStep";
+import ConfirmationStep from "@components/checkout/steps/ConfirmationStep";
 
 function StepRouter() {
   const { state } = useCheckout();
@@ -20,16 +23,16 @@ function StepRouter() {
       return <CartStep />;
     case 1:
       return <CustomerStep />;
-    case 2:
-      return (
-        <Suspense fallback={<div className="p-6">Lädt…</div>}>
-          <ShippingPaymentStep />
-        </Suspense>
-      );
+    // case 2:
+    //   return (
+    //     <Suspense fallback={<div className="p-6">Lädt…</div>}>
+    //       <ShippingPaymentStep />
+    //     </Suspense>
+    //   );
     case 3:
-      return <ReviewStep />;
-    case 4:
-      return <TrackingStep />;
+      return <ConfirmationStep />;
+    // case 4:
+    //   return <TrackingStep />;
     default:
       return <CartStep />;
   }
@@ -55,10 +58,9 @@ function HeaderAndContent() {
 
 export default function CheckoutShell() {
   return (
-    <CheckoutProvider>
       <div className="mx-auto max-w-6xl px-4 py-6 md:py-10">
         <HeaderAndContent />
       </div>
-    </CheckoutProvider>
   );
 }
+

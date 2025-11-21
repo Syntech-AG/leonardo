@@ -1,4 +1,9 @@
-import React, { useState } from "react";
+"use client";
+
+import React, { useState, useEffect } from "react";
+import { supabase } from "@components/supabase/supabaseClient";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 const EyeSlashIcon = (props) => (
   <svg
@@ -39,18 +44,134 @@ const EyeIcon = (props) => (
   </svg>
 );
 
-const Login = () => {
-  const [email, setEmail] = useState("shansalvadr@gmail.com");
-  const [password, setPassword] = useState("******************");
+export default function Login() {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState("");
+  
+  // New states for auth check
+  const [user, setUser] = useState(null);
+  const [checkingAuth, setCheckingAuth] = useState(true);
+  const router = useRouter();
 
-  const handleSubmit = (event) => {
-    event.preventDefault();
-    console.log("Login attempt with:", { email, password, rememberMe });
-    alert("Check the console for form data. Login logic not implemented.");
+  // Check auth on mount
+  useEffect(() => {
+    const checkUser = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        setUser(session?.user || null);
+      } catch (error) {
+        console.error("Error checking auth:", error);
+      } finally {
+        setCheckingAuth(false);
+      }
+    };
+
+    checkUser();
+
+    // Listen for auth changes (e.g. sign out from another tab)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user || null);
+      setCheckingAuth(false);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const handleLogout = async () => {
+    setLoading(true);
+    await supabase.auth.signOut();
+    setUser(null);
+    setLoading(false);
   };
 
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    setLoading(true);
+    setMessage("");
+
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        setMessage(`Login error: ${error.message}`);
+      } else {
+        // Fetch customer data if needed (optional for just login check)
+        const { data: customer } = await supabase
+          .from("customers")
+          .select("*")
+          .eq("auth_user_id", data.user.id)
+          .single();
+
+        setMessage("Login successful!");
+        setUser(data.user);
+        // router.push('/shop'); // Optional: Redirect automatically
+      }
+    } catch (error) {
+      setMessage(`Error: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (checkingAuth) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-100">
+        <div className="animate-pulse flex space-x-4">
+          <div className="flex-1 space-y-4 py-1">
+            <div className="h-4 bg-gray-300 rounded w-3/4"></div>
+            <div className="space-y-2">
+              <div className="h-4 bg-gray-300 rounded"></div>
+              <div className="h-4 bg-gray-300 rounded w-5/6"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // --- LOGGED IN STATE ---
+  if (user) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-100 font-sans">
+        <div className="w-full max-w-md p-8 bg-white rounded-xl shadow-lg text-center space-y-6">
+          <div className="rounded-full bg-green-100 w-16 h-16 flex items-center justify-center mx-auto">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-8 h-8 text-green-600">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+            </svg>
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Welcome back!</h1>
+            <p className="mt-2 text-gray-500">
+              You are currently logged in as <br/>
+              <span className="font-medium text-gray-800">{user.email}</span>
+            </p>
+          </div>
+
+          <div className="space-y-3 pt-4">
+            <Link href="/shop" className="block w-full py-3 px-4 bg-amber-400 hover:bg-amber-500 text-black font-bold rounded-md transition-colors">
+              Continue Shopping
+            </Link>
+            <button
+              onClick={handleLogout}
+              disabled={loading}
+              className="block w-full py-3 px-4 bg-white border border-gray-300 text-gray-700 font-medium rounded-md hover:bg-gray-50 transition-colors"
+            >
+              {loading ? "Signing out..." : "Log out"}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // --- LOGIN FORM (If not logged in) ---
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-100 font-sans">
       <div className="w-full max-w-md p-8 space-y-8 bg-white rounded-xl shadow-lg">
@@ -60,6 +181,18 @@ const Login = () => {
             Login to access your Leonardo Doors account
           </p>
         </div>
+
+        {message && (
+          <div
+            className={`p-4 rounded-md ${
+              message.includes("error")
+                ? "bg-red-100 text-red-700"
+                : "bg-green-100 text-green-700"
+            }`}
+          >
+            {message}
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="mt-8 space-y-6">
           <div className="relative">
@@ -141,25 +274,24 @@ const Login = () => {
           <div>
             <button
               type="submit"
-              className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-bold rounded-md text-black bg-amber-400 hover:bg-amber-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500"
+              disabled={loading}
+              className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-bold rounded-md text-black bg-amber-400 hover:bg-amber-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 disabled:opacity-50"
             >
-              Login
+              {loading ? "Logging in..." : "Login"}
             </button>
           </div>
         </form>
 
         <p className="mt-6 text-center text-sm text-gray-600">
           Don't have an account?{" "}
-          <a
-            href="#"
+          <Link
+            href="/signup"
             className="font-medium text-amber-500 hover:text-amber-600"
           >
             Sign up
-          </a>
+          </Link>
         </p>
       </div>
     </div>
   );
-};
-
-export default Login;
+}

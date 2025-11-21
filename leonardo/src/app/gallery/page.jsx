@@ -1,4 +1,6 @@
-import { WishlistRow } from "../mini-components/WishlistRow";
+"use client";
+
+import { WishlistRow } from "@/mini-components/WishlistRow";
 import { useCallback, useMemo } from "react";
 
 export default function Wishlist() {
@@ -80,3 +82,4 @@ export default function Wishlist() {
     </section>
   );
 }
+

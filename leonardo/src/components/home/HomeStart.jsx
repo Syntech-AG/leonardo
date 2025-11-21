@@ -1,3 +1,4 @@
+import Link from "next/link";
 import React from "react";
 
 const HomeStart = () => {
@@ -15,9 +16,9 @@ const HomeStart = () => {
             Entdecken Sie Türen, wo Design auf Langlebigkeit trifft. Von schlank
             modern bis zeitlos klassisch finden Sie Ihre perfekte Passform.
           </p>
-          <button className="w-fit text-[14px] bg-black rounded-lg px-10 py-3 text-white">
+          <Link href={"/shop"} className="w-fit text-[14px] bg-black rounded-lg px-10 py-3 text-white">
             Jetzt einkaufen
-          </button>
+          </Link>
         </div>
 
         <img

@@ -60,10 +60,8 @@ export default function TrackingStep() {
         </div>
       </section>
 
-      {/* Optional: reuse SummarySidebar here too if desired */}
       <section className="rounded border border-gray-200 bg-white p-4 md:p-6">
         <h3 className="text-lg font-semibold text-gray-900">IHRE BESTELLUNG</h3>
-        {/* Minimal recap; or import SummarySidebar to keep identical */}
       </section>
     </div>
   );

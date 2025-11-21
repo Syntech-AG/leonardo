@@ -1,11 +1,107 @@
-import React, { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+"use client";
+
+import React, { useState, useEffect, useRef } from "react";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+
+// --- OPTIMIZED SEARCH COMPONENT ---
+// Now accepts onSearchSubmit to handle closing mobile menus
+const HeaderSearch = ({ className, iconClass = "w-[22px]", onSearchSubmit }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const inputRef = useRef(null);
+  const containerRef = useRef(null);
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // Sync local state with URL
+  useEffect(() => {
+    const currentSearch = searchParams.get("search");
+    if (currentSearch) {
+      setQuery(currentSearch);
+    }
+  }, [searchParams]);
+
+  // Auto-focus input when opened
+  useEffect(() => {
+    if (isOpen && inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [isOpen]);
+
+  // Close input when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (containerRef.current && !containerRef.current.contains(event.target)) {
+        if (!query) setIsOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [query]);
+
+  const handleSearch = (e) => {
+    e.preventDefault();
+    if (query.trim()) {
+      // 1. Navigate
+      router.push(`/shop?search=${encodeURIComponent(query)}`);
+      
+      // 2. Close the search input itself
+      setIsOpen(false);
+      
+      // 3. Trigger callback (closes mobile menu)
+      if (onSearchSubmit) {
+        onSearchSubmit();
+      }
+    }
+  };
+
+  return (
+    <div ref={containerRef} className={`relative flex items-center ${className}`}>
+      {isOpen ? (
+        <form onSubmit={handleSearch} className="absolute right-0 z-20 flex items-center">
+          <input
+            ref={inputRef}
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            className="w-[200px] bg-white border border-gray-300 rounded-md px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-yellow-600 shadow-lg"
+            placeholder="Search..."
+            onBlur={() => {
+              setTimeout(() => {
+                 if(!query) setIsOpen(false)
+              }, 200)
+            }}
+          />
+          <button 
+            type="submit" 
+            className="absolute right-2 text-gray-400 hover:text-yellow-600"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+               <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+          </button>
+        </form>
+      ) : (
+        <button 
+          onClick={() => setIsOpen(true)}
+          className="flex items-center justify-center"
+          aria-label="Open Search"
+        >
+          <img className={iconClass} src="/images/search.svg" alt="Search" />
+        </button>
+      )}
+    </div>
+  );
+};
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   useEffect(() => {
-    document.body.style.overflow = isMenuOpen ? "hidden" : "auto";
+    if (typeof window !== "undefined") {
+      document.body.style.overflow = isMenuOpen ? "hidden" : "auto";
+    }
   }, [isMenuOpen]);
 
   const navItems = [
@@ -21,35 +117,15 @@ const Header = () => {
     },
     {
       id: 3,
-      name: "Product View",
-      path: "/checkout",
-    },
-    {
-      id: 4,
       name: "Checkout",
-      path: "/checkout2",
-    },
-    // {
-    //   id: 5,
-    //   name: "About Us",
-    //   path: "/aboutus",
-    // },
-    // {
-    //   id: 6,
-    //   name: "References",
-    //   path: "/references",
-    // },
-    {
-      id: 7,
-      name: "Gallery",
-      path: "/gallery",
+      path: "/checkout-flow",
     },
   ];
 
   return (
     <header>
       <div className="bg-[#F7F7F7]">
-        <div className="container flex justify-between max-md:justify-center py-4">
+        <div className="container flex justify-between max-md:justify-center max-md:gap-5 py-4">
           <div className="flex items-center gap-2">
             <img
               className="w-[15px]"
@@ -62,29 +138,25 @@ const Header = () => {
           </div>
 
           <div className="hidden sm:flex gap-4">
-            <div className="flex items-center gap-1">
-              <p className="text-[#666666] text-[12px]">Eng</p>
-              <img src="/images/arrowDown.svg" alt="Language" />
-            </div>
-            <div className="flex items-center gap-1">
-              <p className="text-[#666666] text-[12px]">USD</p>
-              <img src="/images/arrowDown.svg" alt="Currency" />
-            </div>
             <div className="flex gap-2">
-              <p className="text-[#666666] text-[12px]">Register</p>
+              <Link href={"/signup"} className="text-[#666666] text-[12px]">
+                Register
+              </Link>
               <p className="text-[#666666] text-[12px]">/</p>
-              <p className="text-[#666666] text-[12px]">Log&nbsp;in</p>
+              <Link href={"/login"} className="text-[#666666] text-[12px]">
+                Log&nbsp;in
+              </Link>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="container flex items-center justify-between py-4">
+      <div className="container flex items-center justify-between py-4 relative">
         <nav className="hidden md:block">
           <div className="flex gap-5">
             {navItems.map((item) => (
               <Link
-                to={item.path}
+                href={item.path}
                 key={item.id}
                 className="text-[14px] font-[500] text-[#808080]"
               >
@@ -96,10 +168,13 @@ const Header = () => {
 
         <img src="/images/logo.svg" alt="Logo" className="h-8" />
 
-        <div className="hidden md:flex gap-3">
-          <img className="w-[22px]" src="/images/search.svg" alt="Search" />
-          <img className="w-[22px]" src="/images/heart.svg" alt="Wishlist" />
-          <img className="w-[26px]" src="/images/cart.svg" alt="Cart" />
+        <div className="hidden md:flex gap-3 items-center">
+          {/* Desktop Search - No need to close menu */}
+          <HeaderSearch />
+          
+          <Link href={"/checkout-flow"}>
+            <img className="w-[26px]" src="/images/cart.svg" alt="Cart" />
+          </Link>
         </div>
 
         <button
@@ -160,7 +235,7 @@ const Header = () => {
             {navItems.map((item) => (
               <Link
                 key={item.id}
-                to={item.path}
+                href={item.path}
                 onClick={() => setIsMenuOpen(false)}
                 className="text-[18px] font-semibold text-[#808080]"
               >
@@ -170,25 +245,20 @@ const Header = () => {
           </ul>
         </nav>
 
-        <div className="mt-8 flex justify-center gap-6">
-          <img className="w-[22px]" src="/images/search.svg" alt="Search" />
-          <img className="w-[22px]" src="/images/heart.svg" alt="Wishlist" />
-          <img className="w-[26px]" src="/images/cart.svg" alt="Cart" />
+        <div className="mt-8 flex justify-center gap-6 items-center">
+           {/* Mobile Search - Closes menu on submit */}
+           <HeaderSearch onSearchSubmit={() => setIsMenuOpen(false)} />
+
+          <Link href={"/checkout-flow"} onClick={() => setIsMenuOpen(false)}>
+            <img className="w-[26px]" src="/images/cart.svg" alt="Cart" />
+          </Link>
         </div>
 
         <div className="mt-10 mb-8 flex flex-col items-center gap-4 text-[12px] text-[#666666]">
-          <button className="flex items-center gap-1">
-            <span>Eng</span>
-            <img src="/images/arrowDown.svg" alt="" />
-          </button>
-          <button className="flex items-center gap-1">
-            <span>USD</span>
-            <img src="/images/arrowDown.svg" alt="" />
-          </button>
           <div className="flex gap-2">
-            <span>Register</span>
+            <Link href={"/signup"}>Register</Link>
             <span>/</span>
-            <span>Log&nbsp;in</span>
+            <Link href={"/login"}>Log&nbsp;in</Link>
           </div>
         </div>
       </div>

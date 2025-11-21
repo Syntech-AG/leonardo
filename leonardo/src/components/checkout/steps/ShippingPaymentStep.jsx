@@ -1,8 +1,11 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useCheckout } from "../store/CheckoutProvider";
 import SummarySidebar from "../components/SummarySidebar";
 import { RadioCard, Input } from "../components/FormControls";
-import { formatCHF } from "../../../js-components/currency";
+import { formatCHF } from "@utils/currency";
+
+// You'll need to install: npm install @stripe/react-stripe-js @stripe/js
+import { CardElement, useStripe, useElements } from "@stripe/react-stripe-js";
 
 const METHODS = [
   {
@@ -30,11 +33,16 @@ const METHODS = [
 
 export default function ShippingPaymentStep() {
   const { state, dispatch } = useCheckout();
+  const stripe = useStripe();
+  const elements = useElements();
+
   const [shippingId, setShippingId] = useState(
     state.shipping?.methodId || "dhl"
   );
   const [payMethod, setPayMethod] = useState(state.payment?.method || "card");
-  const [card, setCard] = useState({ name: "", number: "", exp: "", cvc: "" });
+  const [cardComplete, setCardComplete] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [cardError, setCardError] = useState(null);
 
   const chooseShip = (m) => {
     setShippingId(m.id);
@@ -44,29 +52,62 @@ export default function ShippingPaymentStep() {
     });
   };
 
-  const validCard =
-    payMethod !== "card" ||
-    (card.name &&
-      /^\d{12,19}$/.test(card.number.replace(/\s+/g, "")) &&
-      /^\d{2}\/\d{2}$/.test(card.exp) &&
-      /^\d{3,4}$/.test(card.cvc));
+  const handleCardChange = (event) => {
+    setCardError(event.error?.message || null);
+    setCardComplete(event.complete);
+  };
 
-  const next = () => {
+  const next = async () => {
     if (payMethod === "card") {
-      // Tokenize with your PSP here, store only token/last4/brand
+      if (!stripe || !elements) {
+        setCardError("Stripe is not loaded");
+        return;
+      }
+
+      if (!cardComplete) {
+        setCardError("Please complete your card details");
+        return;
+      }
+
+      setLoading(true);
+      setCardError(null);
+
+      try {
+        // Create Payment Method with Stripe
+        const { paymentMethod, error } = await stripe.createPaymentMethod({
+          type: "card",
+          card: elements.getElement(CardElement),
+        });
+
+        if (error) {
+          throw new Error(error.message);
+        }
+
+        // Store payment method info (not the actual card data)
+        dispatch({
+          type: "SET_PAYMENT",
+          payload: {
+            method: "card",
+            token: paymentMethod.id,
+            brand: paymentMethod.card.brand.toUpperCase(),
+            last4: paymentMethod.card.last4,
+          },
+        });
+
+        dispatch({ type: "SET_STEP", step: 3 });
+      } catch (err) {
+        setCardError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    } else if (payMethod === "paypal") {
+      // PayPal placeholder
       dispatch({
         type: "SET_PAYMENT",
-        payload: {
-          method: "card",
-          token: "tok_demo",
-          brand: "VISA",
-          last4: card.number.slice(-4),
-        },
+        payload: { method: "paypal", token: "paypal_placeholder" },
       });
-    } else {
-      dispatch({ type: "SET_PAYMENT", payload: { method: "paypal" } });
+      dispatch({ type: "SET_STEP", step: 3 });
     }
-    dispatch({ type: "SET_STEP", step: 3 });
   };
 
   return (
@@ -104,34 +145,54 @@ export default function ShippingPaymentStep() {
               checked={payMethod === "paypal"}
               onChange={() => setPayMethod("paypal")}
               title="Paypal"
-              subtitle="Geben Sie Ihre PayPal-Konto-E-Mail-Adresse ein."
+              subtitle="Zahlen Sie sicher mit PayPal."
             />
           </div>
 
           {payMethod === "card" && (
-            <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Input
-                label="Kartenname"
-                value={card.name}
-                onChange={(e) => setCard({ ...card, name: e.target.value })}
-              />
-              <Input
-                label="Kartennummer"
-                value={card.number}
-                onChange={(e) => setCard({ ...card, number: e.target.value })}
-                placeholder="•••• •••• •••• ••••"
-              />
-              <Input
-                label="Ablaufdatum"
-                value={card.exp}
-                onChange={(e) => setCard({ ...card, exp: e.target.value })}
-                placeholder="MM/JJ"
-              />
-              <Input
-                label="CVC"
-                value={card.cvc}
-                onChange={(e) => setCard({ ...card, cvc: e.target.value })}
-              />
+            <div className="mt-6 space-y-4">
+              <div className="border border-gray-300 rounded p-4 bg-gray-50">
+                <label className="block text-xs font-medium text-gray-700 mb-2">
+                  Kartendaten
+                </label>
+                <CardElement
+                  onChange={handleCardChange}
+                  options={{
+                    style: {
+                      base: {
+                        fontSize: "16px",
+                        color: "#424770",
+                        "::placeholder": {
+                          color: "#aab7c4",
+                        },
+                      },
+                      invalid: {
+                        color: "#9e2146",
+                      },
+                    },
+                  }}
+                />
+              </div>
+
+              {cardError && (
+                <div className="rounded border border-red-300 bg-red-50 p-3">
+                  <p className="text-sm text-red-800">{cardError}</p>
+                </div>
+              )}
+
+              <p className="text-xs text-gray-500">
+                Ihre Kartendaten werden sicher über Stripe verarbeitet und nicht
+                auf unseren Servern gespeichert.
+              </p>
+            </div>
+          )}
+
+          {payMethod === "paypal" && (
+            <div className="mt-4 rounded border border-blue-300 bg-blue-50 p-3">
+              <p className="text-sm text-blue-800">
+                Sie werden zu PayPal weitergeleitet, um die Zahlung zu
+                bestätigen.
+              </p>
             </div>
           )}
         </section>
@@ -139,16 +200,17 @@ export default function ShippingPaymentStep() {
         <div className="flex gap-3">
           <button
             onClick={() => dispatch({ type: "SET_STEP", step: 1 })}
-            className="rounded border border-gray-300 px-4 py-2 text-sm"
+            disabled={loading}
+            className="rounded border border-gray-300 px-4 py-2 text-sm disabled:opacity-60"
           >
             Zurück
           </button>
           <button
             onClick={next}
-            disabled={!validCard}
-            className="rounded bg-yellow-500 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+            disabled={(!cardComplete && payMethod === "card") || loading}
+            className="rounded bg-yellow-500 px-4 py-2 text-sm font-semibold text-white hover:bg-yellow-600 disabled:opacity-60 transition-colors"
           >
-            Überprüfen Sie Ihre Bestellung
+            {loading ? "Wird verarbeitet..." : "Überprüfen Sie Ihre Bestellung"}
           </button>
         </div>
       </div>
@@ -157,8 +219,8 @@ export default function ShippingPaymentStep() {
         totals={state.meta.totals}
         items={state.cart.items}
         ctaText="Überprüfen Sie Ihre Bestellung"
-        onCta={() => validCard && next()}
-        disabled={!validCard}
+        onCta={() => !loading && next()}
+        disabled={(!cardComplete && payMethod === "card") || loading}
       />
     </div>
   );

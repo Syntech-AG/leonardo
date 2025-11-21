@@ -1,3 +1,4 @@
+"use client";
 import React, { useEffect, useRef, useState } from "react";
 
 const Modern = () => {
@@ -26,18 +27,14 @@ const Modern = () => {
             alt=""
           />
           <h1 className="lg:text-[30px] text-[25px] text-black font-medium leading-[1.05] rounded-lg z-10 leading-[1.6]">
-            MODERNE LINIEN - Massgeschneidert
+          Moderne Innenräume beginnen hier
           </h1>
           <p className="lg:text-[16px] text-[14px] text-black z-10 leading-[1.8]">
-            Massgeschneidertes Design trifft auf zeitgenössischen Stil.
-            Entdecken Sie eine kuratierte Auswahl an schlanken, flachen
-            Innentüren, die jetzt nach Ihren genauen Massen angefertigt werden.
-            Klare Linien, minimalistisches Design und präzise Handwerkskunst
-            vereinen sich für eine zeitlose Passform in jedem modernen Zuhause.
+          Entdecken Sie moderne Innentüren, die klare Linien und minimalistisches Design vereinen. Fein ausgearbeitete Details und hochwertige Oberflächen bringen Harmonie und Eleganz in jeden Raum.
           </p>
-          <button className="w-fit text-[14px] bg-black rounded-lg px-10 py-3 text-white z-10">
+          {/* <button className="w-fit text-[14px] bg-black rounded-lg px-10 py-3 text-white z-10">
             Massanfertigung
-          </button>
+          </button> */}
         </div>
 
         <img

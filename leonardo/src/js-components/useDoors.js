@@ -1,145 +1,129 @@
 import { useEffect, useState } from "react";
+import { supabase } from "../components/supabase/supabaseClient";
 
-async function fetchDoors() {
-  return [
-    {
-      id: "d1",
-      name: "Aluminium-Haustür",
-      price: 2352.41,
-      //   discount: 0.35,
-      rating: 5,
-      images: ["/images/door2.png"],
-      category: "Innentüren",
-      material: "Eichenholz",
-      glazing: "Teilglas",
-      color: "green",
-      height: 2000,
-    },
-    {
-      id: "d2",
-      name: "Aluminium-Haustür",
-      price: 3000.41,
-      //   discount: 0.35,
-      rating: 5,
-      images: ["/images/door2.png"],
-      category: "Außentüren",
-      material: "Bronze",
-      glazing: "Teilglas",
-      color: "black",
-      height: 2000,
-    },
-    {
-      id: "d3",
-      name: "Aluminium-Haustür",
-      price: 2352.41,
-      //   discount: 0.35,
-      rating: 5,
-      images: ["/images/door2.png"],
-      category: "Außentüren",
-      material: "Eichenholz",
-      glazing: "Teilglas",
-      color: "black",
-      height: 2000,
-    },
-    {
-      id: "d4",
-      name: "Aluminium-Haustür",
-      price: 2352.41,
-      //   discount: 0.35,
-      rating: 5,
-      images: ["/images/door2.png"],
-      category: "Innentüren",
-      material: "Eichenholz",
-      glazing: "Teilglas",
-      color: "green",
-      height: 2000,
-    },
-    {
-      id: "d5",
-      name: "Aluminium-Haustür",
-      price: 3000.41,
-      //   discount: 0.35,
-      rating: 5,
-      images: ["/images/door2.png"],
-      category: "Außentüren",
-      material: "Bronze",
-      glazing: "Teilglas",
-      color: "black",
-      height: 2000,
-    },
-    {
-      id: "d6",
-      name: "Aluminium-Haustür",
-      price: 2352.41,
-      //   discount: 0.35,
-      rating: 5,
-      images: ["/images/door2.png"],
-      category: "Außentüren",
-      material: "Eichenholz",
-      glazing: "Teilglas",
-      color: "black",
-      height: 2000,
-    },
-    {
-      id: "d7",
-      name: "Aluminium-Haustür",
-      price: 2352.41,
-      //   discount: 0.35,
-      rating: 5,
-      images: ["/images/door2.png"],
-      category: "Außentüren",
-      material: "Eichenholz",
-      glazing: "Teilglas",
-      color: "black",
-      height: 2000,
-    },
-    {
-      id: "d8",
-      name: "Aluminium-Haustür",
-      price: 2352.41,
-      rating: 5,
-      images: ["/images/door2.png"],
-      category: "Innentüren",
-      material: "Eichenholz",
-      glazing: "Teilglas",
-      color: "green",
-      height: 2000,
-    },
-    {
-      id: "d9",
-      name: "Aluminium-Haustür",
-      price: 3000.41,
-      rating: 5,
-      images: ["/images/door2.png"],
-      category: "Außentüren",
-      material: "Bronze",
-      glazing: "Teilglas",
-      color: "black",
-      height: 2000,
-    },
-    {
-      id: "d10",
-      name: "Aluminium-Haustür",
-      price: 2352.41,
-      //   discount: 0.35,
-      rating: 5,
-      images: ["/images/door2.png"],
-      category: "Außentüren",
-      material: "Eichenholz",
-      glazing: "Teilglas",
-      color: "black",
-      height: 2000,
-    },
-  ];
-}
+const transformDoor = (door) => ({
+  ...door,
+  name: door.door_name,
+  category: door.door_type,
+  glazing: door.glass_insert,
+  images: door.doorImages,
+  rating: door.rating || 5,
+  material: door.material || door.frame_material || null,
+  color: door.color || null,
+  style: door.door_style || null,
+  brand: door.brand || null,
+});
 
 export function useDoors() {
   const [doors, setDoors] = useState(null);
+  const [variants, setVariants] = useState(null);
+  // --- ADDED STATES ---
+  const [taxonomies, setTaxonomies] = useState(null);
+  const [taxonomyTypes, setTaxonomyTypes] = useState(null);
+  // --------------------
   const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchDoors().then(setDoors).catch(setError);
+    let isMounted = true;
+
+    const loadDoorsWithVariants = async () => {
+      try {
+        // --- MODIFIED: Fetch all data concurrently ---
+        const [
+          doorsResult,
+          variantsResult,
+          taxonomiesResult,
+          taxonomyTypesResult,
+        ] = await Promise.all([
+          supabase
+            .from("doors")
+            .select("*")
+            .eq("is_deleted", false)
+            .eq("current_status", "active"),
+          supabase.from("doors_variants").select("*"),
+          supabase.from("taxonomies").select("*").eq("is_active", true),
+          supabase.from("taxonomy_types").select("*"),
+        ]);
+
+        const { data: doorsData, error: doorsError } = doorsResult;
+        if (doorsError) throw doorsError;
+
+        const { data: variantsData, error: variantsError } = variantsResult;
+        if (variantsError) throw variantsError;
+
+        const { data: taxonomiesData, error: taxonomiesError } =
+          taxonomiesResult;
+        if (taxonomiesError) throw taxonomiesError;
+
+        const { data: taxonomyTypesData, error: taxonomyTypesError } =
+          taxonomyTypesResult;
+        if (taxonomyTypesError) throw taxonomyTypesError;
+        // ------------------------------------------
+
+        console.log("Fetched doors:", doorsData);
+
+        if (isMounted) {
+          // Transform doors
+          const transformedDoors = doorsData.map((door) => {
+            // Get all variants for this door
+            const doorVariants = variantsData.filter(
+              (v) => v.door_id === door.id
+            );
+
+            // Get lowest price and size ranges
+            const prices = doorVariants
+              .map((v) => v.discount_price || v.price)
+              .filter((p) => p > 0);
+            const heights = doorVariants.map((v) => v.height).filter(Boolean);
+            const widths = doorVariants.map((v) => v.width).filter(Boolean);
+
+            return {
+              ...transformDoor(door),
+              price: prices.length ? Math.min(...prices) : 0,
+              minPrice: prices.length ? Math.min(...prices) : 0,
+              maxPrice: prices.length ? Math.max(...prices) : 0,
+              minHeight: heights.length ? Math.min(...heights) : null,
+              maxHeight: heights.length ? Math.max(...heights) : null,
+              minWidth: widths.length ? Math.min(...widths) : null,
+              maxWidth: widths.length ? Math.max(...widths) : null,
+              variants: doorVariants,
+              stock: doorVariants.reduce((sum, v) => sum + (v.stock || 0), 0),
+            };
+          });
+
+          setDoors(transformedDoors);
+          setVariants(variantsData);
+          // --- ADDED: Set new states ---
+          setTaxonomies(taxonomiesData);
+          setTaxonomyTypes(taxonomyTypesData);
+          // -----------------------------
+          setError(null);
+        }
+      } catch (err) {
+        if (isMounted) {
+          console.error("Error fetching data:", err);
+          setError(err.message || "Failed to fetch data");
+          setDoors(null);
+          setVariants(null);
+          // --- ADDED: Reset new states on error ---
+          setTaxonomies(null);
+          setTaxonomyTypes(null);
+          // ----------------------------------------
+        }
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    };
+
+    loadDoorsWithVariants();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
-  return { doors, error };
+  // --- MODIFIED: Return new data ---
+  return { doors, variants, taxonomies, taxonomyTypes, error, loading };
+  // ---------------------------------
 }

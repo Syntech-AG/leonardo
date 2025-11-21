@@ -1,114 +1,189 @@
+"use client";
+
 import React, {
   createContext,
   useContext,
-  useEffect,
-  useMemo,
   useReducer,
+  useEffect,
+  useState,
 } from "react";
+import { supabase } from "../../supabase/supabaseClient";
 
-const CheckoutCtx = createContext(null);
+const CheckoutContext = createContext();
 
-const load = () => {
-  try {
-    const raw = sessionStorage.getItem("checkout");
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
-};
-
-const initial = load() || {
-  cart: {
-    items: [
-      // Example item; replace with real cart injection
-      {
-        id: "door-30402D",
-        name: "Aluminium-Fronttür 30402D",
-        price: 235.41,
-        qty: 1,
-        image: "",
-        options: { variant: '78" x 30" Kolonial (44mm)', color: "#2F2F2F" },
-      },
-    ],
-  },
+const initialState = {
+  cart: { items: [] },
   customer: {
     firstName: "",
     lastName: "",
     email: "",
     phone: "",
     address1: "",
-    address2: "",
     city: "",
     zip: "",
     country: "Schweiz",
+    message: "",
   },
-  shipping: {
-    methodId: "dhl",
-    label: "DHL Express",
-    cost: 0,
-    eta: "20. Juli – 03. August",
-  },
-  payment: { method: "card", token: null, brand: null, last4: null },
   meta: {
     step: 0,
-    currency: "CHF",
-    totals: { subtotal: 0, discount: 0, shipping: 0, tax: 0, grand: 0 },
+    totals: { subtotal: 0, tax: 0, shipping: 0, total: 0 },
   },
 };
 
-function reducer(state, action) {
+const calculateTotals = (items) => {
+  const subtotal = items.reduce((sum, item) => sum + item.price * item.qty, 0);
+  const tax = subtotal * 0.077; // 7.7% Swiss VAT
+  const shipping = subtotal > 0 ? 15 : 0;
+  const total = subtotal + tax + shipping;
+
+  return { subtotal, tax, shipping, total };
+};
+
+function checkoutReducer(state, action) {
   switch (action.type) {
+    case "ADD_TO_CART": {
+      const existing = state.cart.items.find((i) => i.id === action.payload.id);
+      let newItems;
+      if (existing) {
+        newItems = state.cart.items.map((i) =>
+          i.id === action.payload.id
+            ? { ...i, qty: i.qty + action.payload.qty }
+            : i
+        );
+      } else {
+        newItems = [...state.cart.items, action.payload];
+      }
+      return {
+        ...state,
+        cart: { items: newItems },
+        meta: {
+          ...state.meta,
+          totals: calculateTotals(newItems),
+        },
+      };
+    }
+    case "SUBMIT_ORDER_SUCCESS":
+      return {
+        ...state,
+        orderInfo: action.payload, 
+      };
+
+    case "UPDATE_ITEM_QTY": {
+      const newItems = state.cart.items.map((i) =>
+        i.id === action.id ? { ...i, qty: action.qty } : i
+      );
+      return {
+        ...state,
+        cart: { items: newItems },
+        meta: {
+          ...state.meta,
+          totals: calculateTotals(newItems),
+        },
+      };
+    }
+
+    case "REMOVE_ITEM": {
+      const newItems = state.cart.items.filter((i) => i.id !== action.id);
+      return {
+        ...state,
+        cart: { items: newItems },
+        meta: {
+          ...state.meta,
+          totals: calculateTotals(newItems),
+        },
+      };
+    }
+
+    case "CLEAR_CART":
+      return {
+        ...state,
+        cart: { items: [] },
+        meta: {
+          ...state.meta,
+          totals: calculateTotals([]),
+        },
+      };
+
     case "SET_STEP":
-      return { ...state, meta: { ...state.meta, step: action.step } };
-    case "SET_CART":
-      return { ...state, cart: { ...state.cart, ...action.payload } };
+      return {
+        ...state,
+        meta: { ...state.meta, step: action.step },
+      };
+
     case "SET_CUSTOMER":
-      return { ...state, customer: { ...state.customer, ...action.payload } };
-    case "SET_SHIPPING":
-      return { ...state, shipping: { ...state.shipping, ...action.payload } };
-    case "SET_PAYMENT":
-      return { ...state, payment: { ...state.payment, ...action.payload } };
-    case "RECALC_TOTALS":
-      return { ...state, meta: { ...state.meta, totals: action.totals } };
-    case "RESET":
-      return initial;
+      return {
+        ...state,
+        customer: action.payload,
+      };
+
+    case "LOAD_CART":
+      return {
+        ...state,
+        cart: { items: action.payload },
+        meta: {
+          ...state.meta,
+          totals: calculateTotals(action.payload),
+        },
+      };
+
     default:
       return state;
   }
 }
 
 export function CheckoutProvider({ children }) {
-  const [state, dispatch] = useReducer(reducer, initial);
+  const [state, dispatch] = useReducer(checkoutReducer, initialState);
+  const [user, setUser] = useState(null);
+  const [hydrated, setHydrated] = useState(false);
 
-  // Derived totals
-  const totals = useMemo(() => {
-    const subtotal = state.cart.items.reduce(
-      (s, it) => s + it.price * it.qty,
-      0
-    );
-    const discount = 0; // plug rules
-    const shipping = state.shipping?.cost || 0;
-    const tax = 0; // plug tax if needed
-    const grand = Math.max(0, subtotal - discount + shipping + tax);
-    return { subtotal, discount, shipping, tax, grand };
-  }, [state.cart.items, state.shipping?.cost]);
-
+  // Only load cart from localStorage ONCE on mount
   useEffect(() => {
-    dispatch({ type: "RECALC_TOTALS", totals });
-  }, [totals]);
+    if (typeof window !== "undefined") {
+      const savedCart = localStorage.getItem("cart-storage");
+      if (savedCart) {
+        try {
+          const items = JSON.parse(savedCart);
+          console.log("Loaded from localStorage on mount:", items);
+          dispatch({ type: "LOAD_CART", payload: items });
+        } catch (err) {
+          console.error("Failed to load cart from localStorage:", err);
+        }
+      }
+      setHydrated(true);
+    }
+  }, []); // Empty dependency array - runs only once
 
+  // Get user info (separate from cart loading)
   useEffect(() => {
-    try {
-      sessionStorage.setItem("checkout", JSON.stringify(state));
-    } catch {}
-  }, [state]);
+    const getUser = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      setUser(user);
+    };
+    getUser();
+  }, []);
 
-  const value = useMemo(() => ({ state, dispatch }), [state]);
-  return <CheckoutCtx.Provider value={value}>{children}</CheckoutCtx.Provider>;
+  // Save cart to localStorage whenever it changes
+  useEffect(() => {
+    // Only save if we are hydrated, otherwise we might overwrite valid data with initial empty state
+    if (hydrated && typeof window !== "undefined") {
+      localStorage.setItem("cart-storage", JSON.stringify(state.cart.items));
+      console.log("Saved to localStorage:", state.cart.items);
+    }
+  }, [state.cart.items, hydrated]);
+
+  return (
+    <CheckoutContext.Provider value={{ state, dispatch, user }}>
+      {children}
+    </CheckoutContext.Provider>
+  );
 }
 
-export const useCheckout = () => {
-  const ctx = useContext(CheckoutCtx);
-  if (!ctx) throw new Error("useCheckout must be used within CheckoutProvider");
-  return ctx;
-};
+export function useCheckout() {
+  const context = useContext(CheckoutContext);
+  if (!context) {
+    throw new Error("useCheckout must be used within CheckoutProvider");
+  }
+  return context;
+}

@@ -1,172 +1,256 @@
-import React, { useMemo, useState, useEffect } from "react";
-import { useDoors } from "../../js-components/useDoors";
+"use client";
+
+import React, { useMemo, useCallback, useEffect, useRef } from "react";
 import FilterSidebar from "../../mini-components/FilterSidebar";
 import Pagination from "../../mini-components/Pagination";
-import { Link, useSearchParams } from "react-router-dom";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 
-const arrParam = (v) => (v ? v.split(",").filter(Boolean) : []);
-const rangeParam = (v, fallback) => {
-  const p = v?.split("-").map(Number);
-  return p && p.length === 2 && !isNaN(p[0]) && !isNaN(p[1])
-    ? [p[0], p[1]]
-    : fallback;
+const ITEMS_PER_PAGE = 9;
+
+const parseArray = (value) => (value ? value.split(",").filter(Boolean) : []);
+
+const parseRange = (value) => {
+  if (!value) return null;
+  const parts = value.split("-").map((p) => {
+    const num = parseFloat(p);
+    return isNaN(num) ? null : num;
+  });
+  return parts.length === 2 && parts[0] !== null && parts[1] !== null
+    ? parts
+    : null;
 };
 
-export default function DoorCatalog() {
-  const { doors, error } = useDoors();
-  const [search, setSearch] = useSearchParams();
-  const ITEMS_PER_PAGE = 9;
+function useFilterState(searchParams) {
+  return useMemo(
+    () => ({
+      category: parseArray(searchParams.get("category")),
+      material: parseArray(searchParams.get("material")),
+      color: parseArray(searchParams.get("color")),
+      glazing: parseArray(searchParams.get("glazing")),
+      style: parseArray(searchParams.get("style")),
+      brand: parseArray(searchParams.get("brand")),
+      search: searchParams.get("search") || "",
+      price: parseRange(searchParams.get("price")),
+      height: parseRange(searchParams.get("height")),
+      width: parseRange(searchParams.get("width")),
+      page: Math.max(1, parseInt(searchParams.get("page"), 10) || 1),
+    }),
+    [searchParams]
+  );
+}
 
-  const [category, setCategory] = useState(() =>
-    arrParam(search.get("category"))
-  );
-  const [material, setMaterial] = useState(() =>
-    arrParam(search.get("material"))
-  );
-  const [color, setColor] = useState(() => arrParam(search.get("color")));
-  const [glazing, setGlazing] = useState(() => arrParam(search.get("glazing")));
-  const [style, setStyle] = useState(() => arrParam(search.get("style")));
-  const [brand, setBrand] = useState(() => arrParam(search.get("brand")));
-  const [price, setPrice] = useState(() =>
-    rangeParam(search.get("price"), null)
-  );
-  const [height, setHeight] = useState(() =>
-    rangeParam(search.get("height"), null)
-  );
-  const [width, setWidth] = useState(() =>
-    rangeParam(search.get("width"), null)
+// --- CHANGED: Accepts data via props instead of fetching it ---
+export default function DoorCatalogClient({ 
+  initialDoors, 
+  initialTaxonomies, 
+  initialTaxonomyTypes 
+}) {
+  // Default to empty arrays to prevent crashes if ISR returns null
+  const doors = initialDoors || [];
+  const taxonomies = initialTaxonomies || [];
+  const taxonomyTypes = initialTaxonomyTypes || [];
+
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const resultsHeaderRef = useRef(null);
+  const prevPageRef = useRef(1);
+
+  const filters = useFilterState(searchParams);
+
+  const updateFilters = useCallback(
+    (updates) => {
+      const newParams = new URLSearchParams(searchParams.toString());
+      const isPagination = "page" in updates;
+
+      Object.entries(updates).forEach(([key, value]) => {
+        if (!value || (Array.isArray(value) && !value.length)) {
+          newParams.delete(key);
+        } else if (Array.isArray(value)) {
+          newParams.set(key, value.join(","));
+        } else if (value !== null && value !== undefined) {
+          newParams.set(key, String(value));
+        } else {
+          newParams.delete(key);
+        }
+      });
+
+      if (!isPagination) {
+        newParams.set("page", "1");
+      }
+
+      router.push(`/shop?${newParams.toString()}`, { scroll: false });
+    },
+    [router, searchParams]
   );
 
-  const [currentPage, setCurrentPage] = useState(() => {
-    const page = parseInt(search.get("page"), 10);
-    return isNaN(page) || page < 1 ? 1 : page;
-  });
-
+  // Scroll to top of results when page changes
   useEffect(() => {
-    const params = new URLSearchParams();
-    if (category.length) params.set("category", category.join(","));
-    if (material.length) params.set("material", material.join(","));
-    if (color.length) params.set("color", color.join(","));
-    if (glazing.length) params.set("glazing", glazing.join(","));
-    if (style.length) params.set("style", style.join(","));
-    if (brand.length) params.set("brand", brand.join(","));
-    if (price) params.set("price", price.join("-"));
-    if (height) params.set("height", height.join("-"));
-    if (width) params.set("width", width.join("-"));
-    if (currentPage > 1) params.set("page", currentPage);
-    setSearch(params, { replace: true });
-  }, [
-    category,
-    material,
-    color,
-    glazing,
-    style,
-    brand,
-    price,
-    height,
-    width,
-    currentPage,
-    setSearch,
-  ]);
+    if (filters.page !== prevPageRef.current) {
+      if (filters.page > 1 || prevPageRef.current > 1) {
+        resultsHeaderRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+      prevPageRef.current = filters.page;
+    }
+  }, [filters.page]);
 
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [category, material, color, glazing, style, brand, price, height, width]);
-
+  // Filter logic remains exactly the same
   const filteredDoors = useMemo(() => {
-    if (!doors) return [];
-    const prices = doors.map((d) => d.price).filter((p) => p != null);
-    const priceRange = prices.length
-      ? [Math.min(...prices), Math.max(...prices)]
-      : [0, 99999];
-    const [minPrice, maxPrice] = price || priceRange;
+    if (!doors?.length) return [];
 
-    return doors.filter((d) => {
-      const catOK = !category.length || category.includes(d.category);
-      const matOK = !material.length || material.includes(d.material);
-      const colorOK = !color.length || color.includes(d.color);
-      const glazeOK = !glazing.length || glazing.includes(d.glazing);
-      const styleOK = !style.length || style.includes(d.style);
-      const brandOK = !brand.length || brand.includes(d.brand);
-      const priceOK = d.price >= minPrice && d.price <= maxPrice;
-      const heightOK =
-        !height || (d.height >= height[0] && d.height <= height[1]);
-      const widthOK = !width || (d.width >= width && d.width <= width[1]);
-      return (
-        catOK &&
-        matOK &&
-        colorOK &&
-        glazeOK &&
-        styleOK &&
-        brandOK &&
-        priceOK &&
-        heightOK &&
-        widthOK
-      );
+    return doors.filter((door) => {
+      // Door-level categorical filters
+      if (
+        filters.category.length &&
+        !filters.category.includes(door.category)
+      ) {
+        return false;
+      }
+
+      if (filters.color.length && !filters.color.includes(door.color)) {
+        return false;
+      }
+
+      if (
+        filters.glazing.length &&
+        !filters.glazing.includes(door.glazing)
+      ) {
+        return false;
+      }
+
+      if (filters.style.length && !filters.style.includes(door.style)) {
+        return false;
+      }
+
+      if (filters.brand.length && !filters.brand.includes(door.brand)) {
+        return false;
+      }
+
+      // Search filter
+      if (filters.search) {
+        const searchLower = filters.search.toLowerCase();
+        const matchesSearch =
+          door.name?.toLowerCase().includes(searchLower) ||
+          door.brand?.toLowerCase().includes(searchLower) ||
+          door.category?.toLowerCase().includes(searchLower);
+        
+        if (!matchesSearch) return false;
+      }
+
+      // Material filter: check door AND variant-level material
+      if (filters.material.length) {
+        const doorMaterial = door.material;
+        const hasMaterial =
+          (doorMaterial && filters.material.includes(doorMaterial)) ||
+          door.variants?.some((v) =>
+            filters.material.includes(v.material || "")
+          );
+        if (!hasMaterial) return false;
+      }
+
+      // Variant-based range filters
+      const doorVariants = door.variants || [];
+
+      // Price filter
+      if (filters.price && filters.price.length === 2) {
+        const [minPrice, maxPrice] = filters.price;
+        const hasPriceMatch = doorVariants.some((v) => {
+          const variantPrice = v.discount_price || v.price;
+          return variantPrice >= minPrice && variantPrice <= maxPrice;
+        });
+        if (!hasPriceMatch) return false;
+      }
+
+      // Height filter
+      if (filters.height && filters.height.length === 2) {
+        const [minHeight, maxHeight] = filters.height;
+        const hasHeightMatch = doorVariants.some((v) => {
+          const variantHeight = v.height;
+          return (
+            variantHeight &&
+            variantHeight >= minHeight &&
+            variantHeight <= maxHeight
+          );
+        });
+        if (!hasHeightMatch) return false;
+      }
+
+      // Width filter
+      if (filters.width && filters.width.length === 2) {
+        const [minWidth, maxWidth] = filters.width;
+        const hasWidthMatch = doorVariants.some((v) => {
+          const variantWidth = v.width;
+          return (
+            variantWidth &&
+            variantWidth >= minWidth &&
+            variantWidth <= maxWidth
+          );
+        });
+        if (!hasWidthMatch) return false;
+      }
+
+      return true;
     });
-  }, [
-    doors,
-    category,
-    material,
-    color,
-    glazing,
-    style,
-    brand,
-    price,
-    height,
-    width,
-  ]);
+  }, [doors, filters]);
 
-  const pagedItems = useMemo(() => {
-    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-    return filteredDoors.slice(startIndex, startIndex + ITEMS_PER_PAGE);
-  }, [currentPage, filteredDoors]);
+  const paginatedDoors = useMemo(() => {
+    const start = (filters.page - 1) * ITEMS_PER_PAGE;
+    return filteredDoors.slice(start, start + ITEMS_PER_PAGE);
+  }, [filteredDoors, filters.page]);
 
-  if (error) return <p className="text-red-600">Fehler: {error.message}</p>;
-  if (!doors) return <p className="animate-pulse">Lade Türen ...</p>;
+  useEffect(() => {
+    if (filters.page > 1 && filteredDoors.length > 0) {
+      const maxPage = Math.ceil(filteredDoors.length / ITEMS_PER_PAGE);
+      if (filters.page > maxPage) {
+        updateFilters({ page: 1 });
+      }
+    }
+  }, [filteredDoors.length, filters.page, updateFilters]);
 
-  const sidebarProps = {
-    allDoors: doors,
-    category,
-    setCategory,
-    material,
-    setMaterial,
-    color,
-    setColor,
-    glazing,
-    setGlazing,
-    style,
-    setStyle,
-    brand,
-    setBrand,
-    price,
-    setPrice,
-    height,
-    setHeight,
-    width,
-    setWidth,
-  };
+  
+  if (!doors || doors.length === 0) {
+    return (
+      <div className="text-gray-500 text-center py-20">
+        <p>Keine Türen verfügbar.</p>
+      </div>
+    );
+  }
 
   return (
-    <section className="flex flex-col sm:flex-row md:py-15 py-8">
+    <section className="flex flex-col md:flex-row md:py-15 py-8 container mx-auto">
       <div className="sm:hidden flex justify-end p-4">
         <details className="w-full">
           <summary className="cursor-pointer bg-gray-100 px-3 py-2 rounded-md text-sm font-medium">
             Filter
           </summary>
-          <FilterSidebar {...sidebarProps} />
+          <FilterSidebar
+            allDoors={doors}
+            filters={filters}
+            onFilterChange={updateFilters}
+            taxonomies={taxonomies}
+            taxonomyTypes={taxonomyTypes}
+          />
         </details>
       </div>
+
       <div className="hidden sm:block">
-        <FilterSidebar {...sidebarProps} />
+        <FilterSidebar
+          allDoors={doors}
+          filters={filters}
+          onFilterChange={updateFilters}
+          taxonomies={taxonomies}
+          taxonomyTypes={taxonomyTypes}
+        />
       </div>
 
       <div className="flex-1 pl-4 sm:pl-8">
-        <h2 className="font-bold text-xl mb-6">
-          {filteredDoors.length} Ergebnis
-          {filteredDoors.length === 1 ? "" : "se"} für{" "}
-          <span className="text-yellow-600">Türen</span>
-        </h2>
+        <div ref={resultsHeaderRef} className="scroll-mt-24">
+          <h2 className="font-bold text-xl mb-6">
+            {filteredDoors.length} Ergebnis{filteredDoors.length !== 1 && "se"}{" "}
+            für <span className="text-yellow-600">Türen</span>
+          </h2>
+        </div>
+
         {filteredDoors.length === 0 ? (
           <p className="text-gray-500">
             Keine Türen passen zu den gewählten Filtern.
@@ -174,33 +258,15 @@ export default function DoorCatalog() {
         ) : (
           <>
             <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {pagedItems.map((door) => (
-                <Link
-                  key={door.id}
-                  to="/checkout"
-                  className="rounded-lg overflow-hidden hover:shadow-lg transition-shadow bg-white flex flex-col items-center"
-                >
-                  <div className="bg-[#EBEBE9] w-full flex justify-center items-center py-10 rounded-lg">
-                    <img
-                      src={door.images[0]}
-                      alt={door.name}
-                      className="object-contain w-fit h-auto"
-                    />
-                  </div>
-                  <div className="p-4 flex flex-col items-center">
-                    <h3 className="font-medium line-clamp-2">{door.name}</h3>
-                    <p className="mt-2 font-bold">
-                      CHF {door.price.toFixed(2)}
-                    </p>
-                  </div>
-                </Link>
+              {paginatedDoors.map((door) => (
+                <DoorCard key={door.id} door={door} />
               ))}
             </ul>
             <Pagination
-              currentPage={currentPage}
+              currentPage={filters.page}
               totalItems={filteredDoors.length}
               itemsPerPage={ITEMS_PER_PAGE}
-              onPageChange={setCurrentPage}
+              onPageChange={(page) => updateFilters({ page })}
             />
           </>
         )}
@@ -208,3 +274,34 @@ export default function DoorCatalog() {
     </section>
   );
 }
+
+const DoorCard = React.memo(({ door }) => (
+  <Link
+    href={`/checkout/${door.id}`}
+    className="rounded-lg overflow-hidden hover:shadow-lg transition-shadow bg-white flex flex-col items-center"
+  >
+    <div className="bg-[#EBEBE9] w-full flex justify-center items-center 2xl:p-10 sm:p-8 p-10 rounded-lg 2xl:min-h-[550px] xl:min-h-[500px] lg:min-h-[400px] md:min-h-[300px]">
+      <img
+        src={door.images?.[0] || "/images/placeholder.png"}
+        alt={door.name}
+        className="object-contain w-fit h-auto max-h-100"
+        loading="lazy"
+      />
+    </div>
+    <div className="p-4 flex flex-col items-center">
+      <h3 className="font-medium line-clamp-2">{door.name}</h3>
+      {door.price > 0 && (
+        <p className="mt-2 font-bold">
+          CHF {door.price.toFixed(2)}
+          {door.stock > 0 && (
+            <span className="text-sm text-gray-500 ml-2">
+              ({door.stock} in stock)
+            </span>
+          )}
+        </p>
+      )}
+    </div>
+  </Link>
+));
+
+DoorCard.displayName = "DoorCard";

@@ -1,5 +1,5 @@
 import React from "react";
-import { clamp } from "../../../js-components/currency";
+import { clamp } from "@utils/currency";
 
 const STEPS = [
   {
@@ -12,16 +12,11 @@ const STEPS = [
     label: "KUNDENINFORMATIONEN",
     desc: "Fügen Sie Ihren Namen, Ihre Telefonnummer und Ihre Adresse hinzu.",
   },
-  {
-    key: "shipping",
-    label: "VERSAND & ZAHLUNG",
-    desc: "Wählen Sie Zahlungsmethoden, einschließlich Ihrer.",
-  },
-  {
-    key: "review",
-    label: "ÜBERPRÜFUNG",
-    desc: "Überprüfen Sie alle Ihre Informationen vor der Bestätigung.",
-  },
+  // {
+  //   key: "confirmation",
+  //   label: "BESTÄTIGUNG",
+  //   desc: "Ihre Bestellung wurde erfolgreich übermittelt.",
+  // },
 ];
 
 export default function ProgressHeader({ current = 0, onStepChange }) {
@@ -63,7 +58,7 @@ export default function ProgressHeader({ current = 0, onStepChange }) {
           />
         </div>
 
-        <ol className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-4">
+        <ol className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-2">
           {STEPS.map((s, i) => {
             const active = i <= current;
             const currentStep = i === current;

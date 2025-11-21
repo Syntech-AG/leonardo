@@ -1,12 +1,28 @@
-# React + Vite
+# Leonardo — Next.js migration
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+This repository was migrated from a Vite React app to Next.js. The important changes:
 
-Currently, two official plugins are available:
+- Next.js app entry: `pages/_app.jsx`, `pages/index.jsx`.
+- Global styles are in `src/index.css` (Tailwind) and PostCSS is configured in `postcss.config.js`.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+To run locally:
 
-## Expanding the ESLint configuration
+1. Install dependencies:
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+	npm install
+
+2. Run development server:
+
+	npm run dev
+
+3. Build for production:
+
+	npm run build
+
+4. Start production server:
+
+	npm run start
+
+Notes:
+- Some routing was migrated from `react-router-dom` to Next.js file-system routing. Components using client navigation were updated to use `next/link` and `next/router`.
+- Static assets remain in the `public/` folder and are served by Next.js.

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import React from "react";
 
 const StarRating = ({ rating }) => {
@@ -24,7 +25,7 @@ const ProductCard = ({ product }) => {
 
   return (
     <div className="bg-white rounded-xl p-0 flex flex-col items-center text-center group">
-      <div className="relative w-full bg-gray-100 rounded-lg px-4 mb-4 flex items-center justify-center">
+      <Link href={`/checkout/${product.id}`} className="relative w-full bg-gray-100 rounded-lg px-4 mb-4 flex items-center justify-center 2xl:min-h-[600px] xl:min-h-[500px] lg:min-h-[400px] md:min-h-[300px]">
         {discount && (
           <div className="absolute top-2 right-2 bg-yellow-400 text-white text-xs font-bold px-2 py-1 rounded">
             {discount}
@@ -35,7 +36,7 @@ const ProductCard = ({ product }) => {
           alt={name}
           className="w-[90%] h-[80%] object-contain transform group-hover:scale-105 transition-transform duration-300"
         />
-      </div>
+      </Link>
 
       <h3 className="font-semibold text-md mb-2">{name}</h3>
       <div className="my-2">

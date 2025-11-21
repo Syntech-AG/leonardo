@@ -35,16 +35,21 @@ function CheckoutProgress({ current = 0, onStepChange }) {
         label: "KUNDENINFORMATIONEN",
         desc: "Fügen Sie Ihren Namen, Ihre Telefonnummer und Ihre Adresse hinzu.",
       },
-      {
-        key: "shipping",
-        label: "VERSAND & ZAHLUNG",
-        desc: "Wählen Sie Zahlungsmethoden, einschließlich Ihrer.",
-      },
-      {
-        key: "review",
-        label: "ÜBERPRÜFUNG",
-        desc: "Überprüfen Sie alle Ihre Informationen vor der Bestätigung.",
-      },
+      // {
+      //   key: "confirmation",
+      //   label: "BESTÄTIGUNG",
+      //   desc: "Ihre Bestellung wurde erfolgreich übermittelt.",
+      // },
+      // {
+      //   key: "shipping",
+      //   label: "VERSAND & ZAHLUNG",
+      //   desc: "Wählen Sie Zahlungsmethoden, einschließlich Ihrer.",
+      // },
+      // {
+      //   key: "review",
+      //   label: "ÜBERPRÜFUNG",
+      //   desc: "Überprüfen Sie alle Ihre Informationen vor der Bestätigung.",
+      // },
     ],
     []
   );
