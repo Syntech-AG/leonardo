@@ -1,24 +1,47 @@
-import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs'
+import { createServerClient } from '@supabase/ssr'
 import { NextResponse } from 'next/server'
-import { NextRequest } from 'next/server'
 
-export async function middleware(NextRequest) {
-  const res = NextResponse.next()
-  const supabase = createMiddlewareClient({ req, res })
+export async function middleware(request) {
+  let response = NextResponse.next({
+    request: {
+      headers: request.headers,
+    },
+  })
+
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll()
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) => request.cookies.set(name, value))
+          response = NextResponse.next({
+            request,
+          })
+          cookiesToSet.forEach(({ name, value, options }) =>
+            response.cookies.set(name, value, options)
+          )
+        },
+      },
+    }
+  )
 
   const {
-    data: { session },
-  } = await supabase.auth.getSession()
+    data: { user },
+  } = await supabase.auth.getUser()
 
-  if (req.nextUrl.pathname.startsWith('/shop')) {
-    if (!session) {
-      return NextResponse.redirect(new URL('/login', req.url))
+  if (request.nextUrl.pathname.startsWith('/shop')) {
+    if (!user) {
+      return NextResponse.redirect(new URL('/login', request.url))
     }
   }
 
-  return res
+  return response
 }
 
 export const config = {
-  matcher: ['/shop/:path*'], 
+  matcher: ['/shop/:path*'],
 }
