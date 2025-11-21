@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 
@@ -170,7 +170,9 @@ const Header = () => {
 
         <div className="hidden md:flex gap-3 items-center">
           {/* Desktop Search - No need to close menu */}
-          <HeaderSearch />
+          <Suspense fallback={<div className="w-[22px]" />}>
+            <HeaderSearch />
+          </Suspense>
           
           <Link href={"/checkout-flow"}>
             <img className="w-[26px]" src="/images/cart.svg" alt="Cart" />
@@ -247,7 +249,9 @@ const Header = () => {
 
         <div className="mt-8 flex justify-center gap-6 items-center">
            {/* Mobile Search - Closes menu on submit */}
-           <HeaderSearch onSearchSubmit={() => setIsMenuOpen(false)} />
+           <Suspense fallback={<div className="w-[22px]" />}>
+             <HeaderSearch onSearchSubmit={() => setIsMenuOpen(false)} />
+           </Suspense>
 
           <Link href={"/checkout-flow"} onClick={() => setIsMenuOpen(false)}>
             <img className="w-[26px]" src="/images/cart.svg" alt="Cart" />
